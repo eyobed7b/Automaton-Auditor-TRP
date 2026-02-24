@@ -1,4 +1,4 @@
-import pdfplumber
+from pypdf import PdfReader
 from typing import List, Dict, Optional
 import os
 
@@ -10,9 +10,9 @@ class DocTools:
         if not os.path.exists(pdf_path):
             return "File not found."
         
-        with pdfplumber.open(pdf_path) as pdf:
-            for page in pdf.pages:
-                text += page.extract_text() or ""
+        reader = PdfReader(pdf_path)
+        for page in reader.pages:
+            text += page.extract_text() or ""
         return text
 
     @staticmethod
