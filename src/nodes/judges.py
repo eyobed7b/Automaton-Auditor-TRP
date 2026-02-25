@@ -1,12 +1,15 @@
 from typing import Dict, List
-from langchain_openai import ChatOpenAI
+import time
+import random
+from langchain_groq import ChatGroq
 from src.state import AgentState, JudicialOpinion, Evidence
 from langchain_core.prompts import ChatPromptTemplate
 import os
 
 def get_judge_model(judge_name: str):
-    model = ChatOpenAI(model="gpt-4o", temperature=0)
-    return model.with_structured_output(JudicialOpinion)
+    # Using Llama 3.3 70B via Groq with JSON mode for better stability
+    model = ChatGroq(model="llama-3.3-70b-versatile", temperature=0)
+    return model.with_structured_output(JudicialOpinion, method="json_mode")
 
 PROSECUTOR_PROMPT = """You are the Prosecutor in a Digital Courtroom.
 Core Philosophy: "Trust No One. Assume Vibe Coding."
@@ -58,10 +61,14 @@ def judge_node_factory(judge_name: str, prompt_template: str):
             
             prompt = ChatPromptTemplate.from_messages([
                 ("system", prompt_template),
-                ("user", "Evaluate the evidence and provide your judicial opinion.")
+                ("user", f"Evaluate the evidence and provide your judicial opinion. Output the result as a flat JSON object matching this schema: {{{{ 'judge': '{judge_name}', 'criterion_id': '{criterion_id}', 'score': <int 1-5>, 'argument': '<string>', 'cited_evidence': ['<string>', ...] }}}}. The 'judge' MUST be exactly '{judge_name}'. The 'score' MUST be an integer between 1 and 5. The 'cited_evidence' MUST be a list of strings.")
             ])
             
             chain = prompt | model
+            
+            # Aggressive rate limit mitigation for Groq free tier
+            time.sleep(random.uniform(2, 5))
+            
             opinion = chain.invoke({
                 "criterion_name": criterion_name,
                 "evidence_summary": evidence_summary

@@ -5,14 +5,19 @@ import os
 class DocTools:
     @staticmethod
     def extract_text_from_pdf(pdf_path: str) -> str:
-        """Extracts text from a PDF file."""
+        """Extracts text from a PDF or text/markdown file."""
         text = ""
         if not os.path.exists(pdf_path):
             return "File not found."
         
-        reader = PdfReader(pdf_path)
-        for page in reader.pages:
-            text += page.extract_text() or ""
+        if pdf_path.lower().endswith(".pdf"):
+            reader = PdfReader(pdf_path)
+            for page in reader.pages:
+                text += page.extract_text() or ""
+        else:
+            # Assume text/markdown
+            with open(pdf_path, "r", encoding="utf-8") as f:
+                text = f.read()
         return text
 
     @staticmethod

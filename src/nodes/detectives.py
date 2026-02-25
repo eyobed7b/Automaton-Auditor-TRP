@@ -1,9 +1,15 @@
 import os
 import shutil
+import time
+import random
 from typing import Dict, List
+from langchain_groq import ChatGroq
 from src.state import AgentState, Evidence
 from src.tools.repo_tools import RepoTools
 from src.tools.doc_tools import DocTools
+
+def get_detective_model():
+    return ChatGroq(model="llama-3.3-70b-versatile", temperature=0)
 
 def repo_investigator_node(state: AgentState) -> Dict:
     repo_url = state["repo_url"]
@@ -47,15 +53,27 @@ def repo_investigator_node(state: AgentState) -> Dict:
             confidence=0.8
         )]
         
-        # Evidence: Safe Tool Engineering
-        # (This would need more deep analysis of the tools directory)
+        # Evidence: Safe Tool Engineering - Now with actual analysis
+        tool_files = [f for f in file_list if "src/tools" in f]
+        tool_contents = []
+        for tf in tool_files[:3]: # Analyze first 3 tools
+            content = RepoTools.read_file(repo_path, tf)
+            if content:
+                tool_contents.append(f"File: {tf}\nContent:\n{content[:500]}")
+        
+        tool_context = "\n\n".join(tool_contents)
+        
+        model = get_detective_model()
+        time.sleep(random.uniform(1, 3)) # Rate limit
+        analysis = model.invoke(f"Analyze these tool implementations for security, secure subprocess usage, and sandboxing intent: \n{tool_context}\n\nProvide a brief summary of security posture.")
+        
         evidences["safe_tool_engineering"] = [Evidence(
             goal="Check for sandboxed cloning and secure subprocess usage",
-            found=True, # Placeholder
-            content="Tool analysis skipped for brevity in node.",
+            found=len(tool_contents) > 0,
+            content=analysis.content,
             location="src/tools/",
-            rationale="Placeholder for tool security analysis.",
-            confidence=0.5
+            rationale="Analyzed tool implementation files using LLM.",
+            confidence=0.8
         )]
 
         # Cleanup
@@ -75,26 +93,34 @@ def doc_analyst_node(state: AgentState) -> Dict:
         
     try:
         text = DocTools.extract_text_from_pdf(pdf_path)
+        # Also check for Architecture.md if it exists
+        arch_text = ""
+        if os.path.exists("Architecture.md"):
+            with open("Architecture.md", "r") as f:
+                arch_text = f.read()
+        
+        combined_text = text + "\n" + arch_text
+        
         keywords = ["Dialectical Synthesis", "Fan-In", "Fan-Out", "Metacognition"]
-        keyword_results = DocTools.search_keywords(text, keywords)
+        keyword_results = DocTools.search_keywords(combined_text, keywords)
         
         evidences["theoretical_depth"] = [Evidence(
-            goal="Verify deep understanding of orchestration concepts in report",
+            goal="Verify deep understanding of orchestration concepts in report and docs",
             found=any(keyword_results.values()),
             content=str(keyword_results),
-            location=pdf_path,
-            rationale=f"Searched for keywords: {keywords}",
-            confidence=0.9
+            location=f"{pdf_path} and Architecture.md",
+            rationale=f"Searched for keywords: {keywords}. Found {sum(keyword_results.values())} keys.",
+            confidence=1.0
         )]
         
-        paths = DocTools.extract_file_paths(text)
+        paths = DocTools.extract_file_paths(combined_text)
         evidences["report_accuracy"] = [Evidence(
             goal="Cross-reference mentioned file paths with actual repository",
             found=len(paths) > 0,
             content=", ".join(paths),
             location=pdf_path,
-            rationale=f"Extracted {len(paths)} potential file paths from PDF.",
-            confidence=0.7
+            rationale=f"Extracted {len(paths)} potential file paths from docs.",
+            confidence=0.9
         )]
         
     except Exception as e:
@@ -103,14 +129,34 @@ def doc_analyst_node(state: AgentState) -> Dict:
     return {"evidences": evidences}
 
 def vision_inspector_node(state: AgentState) -> Dict:
-    # Execution optional as per prompt, but implementation required.
+    # Analyzing architectural diagrams via textual representation (Mermaid)
+    arch_file = "Architecture.md"
+    content = ""
+    if os.path.exists(arch_file):
+        with open(arch_file, "r") as f:
+            content = f.read()
+    
+    if not content:
+         return {"evidences": {"swarm_visual": [Evidence(
+            goal="Analyze architectural diagrams for parallel flow visualization",
+            found=False,
+            content=None,
+            location="Architecture.md",
+            rationale="No architecture documentation found.",
+            confidence=0.0
+        )]}}
+
+    model = get_detective_model()
+    time.sleep(random.uniform(1, 2))
+    analysis = model.invoke(f"Analyze the following architecture documentation and diagrams. Verify if parallel flow and StateGraph orchestration are correctly visualized: \n\n{content}")
+    
     return {"evidences": {"swarm_visual": [Evidence(
         goal="Analyze architectural diagrams for parallel flow visualization",
-        found=False,
-        content=None,
-        location=state["pdf_path"],
-        rationale="Vision analysis not executed in this run.",
-        confidence=0.0
+        found=True,
+        content=analysis.content,
+        location=arch_file,
+        rationale="Analyzed Mermaid diagrams and text using LLM.",
+        confidence=1.0
     )]}}
 
 def evidence_aggregator_node(state: AgentState) -> Dict:

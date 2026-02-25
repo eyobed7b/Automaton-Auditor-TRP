@@ -28,7 +28,7 @@ The system employs a **Hierarchical State Graph** with two major fan-out/fan-in 
 
 ## 3. Known Gaps & Concrete Plan
 
-- **VisionInspector Implementation**: Currently a placeholder node. The plan is to integrate Google Gemini Pro Vision or GPT-4o to analyze architectural diagrams extracted from the PDF.
+- **VisionInspector Implementation**: Currently a placeholder node. The plan is to integrate xAI's Grok models or similar to analyze architectural diagrams extracted from the PDF.
 - **Synthesis Nuance**: The `ChiefJustice` currently uses a weighted average with basic security overrides. We plan to implement more sophisticated "Constitutional AI" logic to resolve deep dialectical conflicts.
 - **RAG-lite for PDF**: Current PDF parsing is basic keyword search. We plan to implement a chunked vector-based search for better context retrieval.
 
